@@ -41,7 +41,7 @@ From this directory:
 .\scripts\collect-and-correlate.ps1
 ```
 
-`up.ps1` creates the `runtime-security` Kind cluster with API audit logging, installs Kyverno and Falco from pinned chart versions, and applies both Kyverno policy tiers. The cluster create is skipped if that Kind cluster already exists. The audit log file is retained in the Kind control-plane container; collection writes snapshots and `report.html` to `runtime-data/`.
+`up.ps1` creates the `runtime-security` Kind cluster with API audit logging, installs Kyverno and Falco from pinned chart versions, and applies both Kyverno policy tiers. The cluster create is skipped if that Kind cluster already exists. The audit log file is retained in the Kind control-plane container; collection writes snapshots, `falco-raw.log` and `report.html` to `runtime-data/`.
 
 `attack-scenarios.ps1` runs every scenario in `scenarios/scenarios.json` (four admission attempts that must be rejected, four runtime actions inside the sample Pod) and records when each one ran. `collect-and-correlate.ps1` prints the correlation, metrics, incidents and coverage tables and writes `runtime-data/report.html`; add `-FailOnGap` to make it fail when a scenario did not produce its expected signal.
 
@@ -171,6 +171,17 @@ To add a scenario, add a Falco rule if needed (then run `sync_falco_values.py`),
 The unit tests do not prove that Kyverno rejects the example Pods or that Falco captures syscalls in your environment; that needs a running cluster (`up.ps1`, then `attack-scenarios.ps1` and `collect-and-correlate.ps1 -FailOnGap`).
 
 `.github/workflows/ci.yml` runs the unit tests (Python 3.10 and 3.13), the sync check, the Kyverno policy tests and the Falco rule validation on every push and pull request, and the full Kind lab nightly, on pushes to `main`, and on demand.
+
+## Verification status
+
+Checked in CI (GitHub Actions, Ubuntu runner, Kind v0.31, Kubernetes 1.35):
+
+- All four admission scenarios (A1-A4) are denied by Kyverno 1.19.1, recorded in the API audit log, and the blocking policy names are parsed from the denial message.
+- The 21 Kyverno CLI policy tests pass, and every Falco rule loads on Falco 0.45.0.
+
+Not yet confirmed in a cluster: Falco runtime detections. In the first end-to-end run Falco raised no alerts for the exec scenarios (R1-R4), so the coverage gate reported them as missed. `collect-and-correlate` now saves `runtime-data/falco-raw.log` (every Falco pod container) and the CI job prints Falco diagnostics when the gate fails; use them to see whether Falco captured nothing or the alerts were lost on the way out.
+
+Kyverno 1.19 prints a deprecation warning for `kyverno.io/v1` `ClusterPolicy` (it points to `ValidatingPolicy` and the other `policies.kyverno.io` types). The policies here still work on 1.19.1; migrate them before moving to a release that removes the legacy types.
 
 ## Pinned versions
 

@@ -4,8 +4,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p runtime-data
 docker exec runtime-security-control-plane cat /var/log/kubernetes/kube-apiserver-audit.log > runtime-data/audit.jsonl
-kubectl logs -n falco -l app.kubernetes.io/name=falco --all-containers=true --since=24h \
+# With a label selector kubectl logs defaults to the last 10 lines per container, so ask for all of them,
+# and read only the falco container: the falcoctl sidecars also log JSON lines that are not alerts.
+kubectl logs -n falco -l app.kubernetes.io/name=falco -c falco --tail=-1 --since=24h \
   | grep -E '^\s*\{' > runtime-data/falco.jsonl || true
+# Everything from every container, kept for diagnosing a Falco that raised no alerts (best effort).
+kubectl logs -n falco -l app.kubernetes.io/name=falco --all-containers=true --prefix --tail=-1 --since=24h \
+  > runtime-data/falco-raw.log 2>&1 || true
 inputs=(--audit runtime-data/audit.jsonl --falco runtime-data/falco.jsonl)
 run=()
 [ -s runtime-data/scenario-run.jsonl ] && run=(--run runtime-data/scenario-run.jsonl)

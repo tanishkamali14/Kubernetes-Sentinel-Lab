@@ -7,8 +7,13 @@ docker exec runtime-security-control-plane cat /var/log/kubernetes/kube-apiserve
 if ($LASTEXITCODE -ne 0) { throw 'Could not read the Kind API audit log.' }
 # Windows PowerShell 5.1 turns redirected native stderr into a terminating error under 'Stop'.
 $ErrorActionPreference = 'Continue'
-$lines = kubectl logs -n falco -l app.kubernetes.io/name=falco --all-containers=true --since=24h 2>&1
+# With a label selector kubectl logs defaults to the last 10 lines per container, so ask for all of them,
+# and read only the falco container: the falcoctl sidecars also log JSON lines that are not alerts.
+$lines = kubectl logs -n falco -l app.kubernetes.io/name=falco -c falco --tail=-1 --since=24h 2>&1
 $logsExit = $LASTEXITCODE
+# Everything from every container, kept for diagnosing a Falco that raised no alerts (best effort).
+kubectl logs -n falco -l app.kubernetes.io/name=falco --all-containers=true --prefix --tail=-1 --since=24h 2>&1 |
+    ForEach-Object { "$_" } | Set-Content -LiteralPath runtime-data/falco-raw.log -Encoding utf8
 $ErrorActionPreference = 'Stop'
 if ($logsExit -ne 0) { throw 'Could not read Falco logs. Check the Falco DaemonSet.' }
 $lines | Where-Object { $_ -match '^\s*\{' } | Set-Content -LiteralPath runtime-data/falco.jsonl -Encoding utf8

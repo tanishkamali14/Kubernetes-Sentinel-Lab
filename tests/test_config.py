@@ -126,6 +126,14 @@ class ScriptTests(unittest.TestCase):
                 if re.search(r'2>&1|\*>\s*\$null', line) and not line.lstrip().startswith('#'):
                     self.assertNotEqual(mode, 'Stop', f'{f.name}:{i} redirects native stderr while $ErrorActionPreference is Stop')
 
+    def test_falco_log_collection_is_not_truncated_or_mixed_with_sidecars(self):
+        # kubectl logs -l defaults to --tail=10 per container, and falcoctl sidecars log JSON that is not alerts.
+        for script in ('collect-and-correlate.ps1', 'collect-and-correlate.sh'):
+            text = read(f'scripts/{script}')
+            first = next(l for l in text.splitlines() if 'kubectl logs' in l and '-c falco' in l)
+            self.assertIn('--tail=-1', first, script)
+            self.assertIn('falco-raw.log', text, script)
+
     def test_chart_versions_are_pinned(self):
         for script in ('up.ps1', 'up.sh'):
             text = read(f'scripts/{script}')
