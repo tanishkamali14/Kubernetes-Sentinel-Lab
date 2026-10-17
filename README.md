@@ -178,12 +178,18 @@ The unit tests do not prove that Kyverno rejects the example Pods or that Falco 
 
 ## Verification status
 
-Checked in CI (GitHub Actions, Ubuntu runner, Kind v0.31, Kubernetes 1.35):
+Confirmed in CI (GitHub Actions, Ubuntu 24.04 runner, Kind v0.31, Kubernetes 1.35, Kyverno 1.19.1, Falco 0.45.0 with the modern eBPF probe). The end-to-end job runs the whole lab (`up.sh`, `deploy-workload.sh`, `attack-scenarios.sh`, `collect-and-correlate.sh --fail-on-gap`) and passes:
 
-- All four admission scenarios (A1-A4) are denied by Kyverno 1.19.1, recorded in the API audit log, and the blocking policy names are parsed from the denial message.
-- The 21 Kyverno CLI policy tests pass, and every Falco rule loads on Falco 0.45.0.
+- **Prevention:** the four admission scenarios (A1-A4) are denied by Kyverno, recorded in the API audit log, and the blocking policy names are parsed from the denial message.
+- **Detection:** the four runtime scenarios (R1-R4) each raise their expected Falco alert (shell, shadow-file attempt with `EACCES`, service account token, package manager), so coverage is 8 of 8.
+- **Correlation:** each `kubectl exec` is joined to the shell alert it caused, about 50 ms apart and attributed to the calling user, and the run produces five incidents (one critical for `runtime-lab`, four for the denied Pods).
+- **Static checks:** the 21 Kyverno CLI policy tests and the Falco rule validation pass.
 
-Not yet confirmed in a cluster: Falco runtime detections. In the first end-to-end run Falco raised no alerts for the exec scenarios (R1-R4), so the coverage gate reported them as missed. `collect-and-correlate` now saves `runtime-data/falco-raw.log` (every Falco pod container) and the CI job prints Falco diagnostics when the gate fails; use them to see whether Falco captured nothing or the alerts were lost on the way out.
+Falco's default ruleset also fires on Kind's own node activity during startup (for example "Drop and execute new binary in container"). Those alerts appear in the Falco counts but carry no pod context, so they open no incidents.
+
+Not covered by CI: Windows with Docker Desktop. The lab has not been run on Docker Desktop's WSL2 backend, where Falco's modern eBPF probe depends on the WSL2 kernel (see Requirements). If it does not work there, run the lab on a Linux host or VM, which is what CI does. Falco's own startup lines (not JSON) are the quickest way to tell: `kubectl logs -n falco daemonset/falco -c falco`.
+
+When the coverage gate fails, `collect-and-correlate` has saved `runtime-data/falco-raw.log` (every Falco pod container) and the CI job prints Falco's pod state and logs, so you can tell whether Falco captured nothing or the alerts were lost on the way out.
 
 Kyverno 1.19 prints a deprecation warning for `kyverno.io/v1` `ClusterPolicy` (it points to `ValidatingPolicy` and the other `policies.kyverno.io` types). The policies here still work on 1.19.1; migrate them before moving to a release that removes the legacy types.
 
