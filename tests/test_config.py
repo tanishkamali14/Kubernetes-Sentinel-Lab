@@ -126,6 +126,14 @@ class ScriptTests(unittest.TestCase):
                 if re.search(r'2>&1|\*>\s*\$null', line) and not line.lstrip().startswith('#'):
                     self.assertNotEqual(mode, 'Stop', f'{f.name}:{i} redirects native stderr while $ErrorActionPreference is Stop')
 
+    def test_up_waits_for_falco_to_capture_before_returning(self):
+        # helm --wait returns immediately for a one-node DaemonSet, so scenarios used to run before Falco started.
+        for script in ('up.ps1', 'up.sh'):
+            text = read(f'scripts/{script}')
+            self.assertIn('rollout status daemonset/falco', text, script)
+            self.assertIn("Opening 'syscall' source", text, script)
+            self.assertLess(text.index('rollout status daemonset/falco'), text.rindex('installed'), script)
+
     def test_falco_log_collection_is_not_truncated_or_mixed_with_sidecars(self):
         # kubectl logs -l defaults to --tail=10 per container, and falcoctl sidecars log JSON that is not alerts.
         for script in ('collect-and-correlate.ps1', 'collect-and-correlate.sh'):

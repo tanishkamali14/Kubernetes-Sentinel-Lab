@@ -26,4 +26,18 @@ kubectl apply -f kyverno/baseline-policies.yaml -f kyverno/advanced-policies.yam
 if ($LASTEXITCODE -ne 0) { throw 'Applying Kyverno policies failed.' }
 helm upgrade --install falco falcosecurity/falco --version $falcoVersion --namespace falco --create-namespace --set driver.kind=modern_ebpf --set tty=true --values helm/falco-values.yaml --wait --timeout 10m
 if ($LASTEXITCODE -ne 0) { throw 'Falco install failed. Check host kernel support and driver logs.' }
+# helm --wait does not wait for a DaemonSet on a one-node cluster (maxUnavailable 1 counts zero ready pods
+# as ready), so scenarios run right after install can start before Falco captures anything. Wait explicitly.
+kubectl rollout status daemonset/falco -n falco --timeout=300s
+if ($LASTEXITCODE -ne 0) { throw 'The Falco DaemonSet did not become ready.' }
+Write-Host 'Waiting for Falco to open its syscall source...'
+$ErrorActionPreference = 'Continue'
+$capturing = $false
+for ($i = 0; $i -lt 60 -and -not $capturing; $i++) {
+    $log = kubectl logs -n falco daemonset/falco -c falco 2>$null
+    if ($log -match "Opening 'syscall' source") { $capturing = $true } else { Start-Sleep -Seconds 2 }
+}
+$ErrorActionPreference = 'Stop'
+if (-not $capturing) { throw 'Falco never opened its syscall source. Check: kubectl logs -n falco daemonset/falco -c falco' }
+Start-Sleep -Seconds 5  # let the probe attach before the first event
 Write-Host 'Cluster, API audit logging, Kyverno policies, and Falco are installed.'
