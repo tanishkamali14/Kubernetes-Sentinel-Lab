@@ -18,12 +18,16 @@ def timestamp(v):
         return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).timestamp()
     except ValueError: return None
 
-def read_jsonl(path):
+def read_jsonl(path,skip_invalid=False):
+    """skip_invalid is for container log captures, where a Falco alert and a Falco log message can be written
+    into the same line; the damaged line is reported on stderr and dropped instead of aborting the run."""
     with Path(path).open(encoding='utf-8-sig') as f:
         for no,line in enumerate(f,1):
             if not line.strip(): continue
             try: obj=json.loads(line)
-            except json.JSONDecodeError as e: raise ValueError(f'{path}:{no}: invalid JSON ({e.msg})') from e
+            except json.JSONDecodeError as e:
+                if skip_invalid: print(f'warning: {path}:{no}: skipped unparseable line ({e.msg})',file=sys.stderr); continue
+                raise ValueError(f'{path}:{no}: invalid JSON ({e.msg})') from e
             if isinstance(obj,dict): yield obj
 
 def audit_exec(e):
@@ -71,7 +75,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--audit',required=True,type=Path); p.add_argument('--falco',required=True,type=Path)
     p.add_argument('--window-seconds',type=float,default=30); args=p.parse_args()
     if args.window_seconds<0: p.error('--window-seconds must be non-negative')
-    try: rows=correlate(list(read_jsonl(args.audit)),list(read_jsonl(args.falco)),args.window_seconds)
+    try: rows=correlate(list(read_jsonl(args.audit)),list(read_jsonl(args.falco,skip_invalid=True)),args.window_seconds)
     except (OSError,ValueError) as e: print(f'error: {e}',file=sys.stderr); return 2
     for row in rows: print(json.dumps(row,separators=(',',':')))
     return 0

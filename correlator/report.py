@@ -80,7 +80,7 @@ def main():
     args = p.parse_args()
     try:
         spec = None if args.no_coverage else scenario_file.load(args.scenarios)
-        page = render(list(read_jsonl(args.audit)), list(read_jsonl(args.falco)), spec, read_run(args.run) if args.run else None,
+        page = render(list(read_jsonl(args.audit)), list(read_jsonl(args.falco, skip_invalid=True)), spec, read_run(args.run) if args.run else None,
                       args.window_seconds, args.gap_seconds)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(page, encoding='utf-8')

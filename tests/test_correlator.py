@@ -105,6 +105,32 @@ class CliTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, r'bad\.jsonl:2'):
                 list(read_jsonl(bad))
 
+    def test_corrupt_falco_line_is_skipped_with_a_warning_not_fatal(self):
+        # Seen in CI: Falco wrote an alert and one of its own log messages into the same line.
+        good = json.dumps(shell_alert())
+        corrupt = '{"hostname":"n","output":"x","rule":"Detect service account token access in container","tags":["T1552.007"2026-10-17T22:18:50+0000: [libs]: Unable to determine path for file descriptor 13'
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, 'falco.jsonl'); p.write_text('\n'.join([good, corrupt, good]), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, r'falco\.jsonl:2'): list(read_jsonl(p))
+            import contextlib, io
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err): rows = list(read_jsonl(p, skip_invalid=True))
+            self.assertEqual(len(rows), 2)
+            self.assertIn('falco.jsonl:2: skipped unparseable line', err.getvalue())
+            a = Path(d, 'audit.jsonl'); a.write_text(json.dumps(exec_event()), encoding='utf-8')
+            for script in ('correlate.py', 'incidents.py', 'metrics.py', 'detection_coverage.py', 'report.py'):
+                extra = ['--out', str(Path(d, 'r.html'))] if script == 'report.py' else []
+                res = subprocess.run([sys.executable, str(ROOT / 'correlator' / script), '--audit', str(a), '--falco', str(p), *extra], capture_output=True, text=True)
+                self.assertEqual(res.returncode, 0, f'{script}: {res.stderr}')
+                self.assertIn('skipped unparseable line', res.stderr, script)
+
+    def test_corrupt_audit_line_is_still_fatal(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = Path(d, 'audit.jsonl'); a.write_text('{broken', encoding='utf-8')
+            f = Path(d, 'falco.jsonl'); f.write_text(json.dumps(shell_alert()), encoding='utf-8')
+            res = subprocess.run([sys.executable, str(ROOT / 'correlator' / 'correlate.py'), '--audit', str(a), '--falco', str(f)], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 2)
+
     def test_bundled_examples_correlate(self):
         res = subprocess.run([sys.executable, str(ROOT / 'correlator' / 'correlate.py'),
                               '--audit', str(ROOT / 'examples' / 'audit.jsonl'), '--falco', str(ROOT / 'examples' / 'falco.jsonl')],

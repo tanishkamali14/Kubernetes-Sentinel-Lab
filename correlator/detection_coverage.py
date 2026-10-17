@@ -74,7 +74,7 @@ def main():
     try:
         spec = scenario_file.load(args.scenarios)
         run = read_run(args.run) if args.run else None
-        result = evaluate(spec, collect_signals(list(read_jsonl(args.audit)), list(read_jsonl(args.falco))), run, since, args.settle_seconds)
+        result = evaluate(spec, collect_signals(list(read_jsonl(args.audit)), list(read_jsonl(args.falco, skip_invalid=True))), run, since, args.settle_seconds)
     except (OSError, ValueError) as e: print(f'error: {e}', file=sys.stderr); return 2
     print(table(result) if args.format == 'table' else json.dumps(result, indent=2))
     return 1 if args.fail_on_gap and result['covered'] != result['total'] else 0

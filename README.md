@@ -141,6 +141,10 @@ python ..\..\correlator\report.py --audit audit.jsonl --falco falco.jsonl --run 
 
 The total is capped at 100: critical ≥ 70, high ≥ 40, medium ≥ 20, otherwise low. Two blind-spot findings are reported per incident: `shell_without_exec_audit` (a shell that did not come through the API server, such as application-level code execution) and `exec_without_falco_alert` (an exec that raised no runtime alert, so verify Falco coverage). The score is a heuristic for ordering work, not a verdict.
 
+Not every non-2xx audit record is a refusal. `404`, `409` and `410` (not found, conflict, gone) are ordinary API races, and the kubelet's own control-plane mirror-pod refusals in `kube-system` at node start are ignored, so a fresh cluster does not open incidents for itself.
+
+Falco input is read tolerantly: container logs can splice a Falco log message into the middle of an alert line, so a line that is not valid JSON is skipped with a `warning: <file>:<line>` on stderr instead of aborting. The audit log is still strict.
+
 `metrics.py` summarizes audit exec requests (de-duplicated, since exec is logged at two stages), denied API responses and denials by Kyverno policy, Falco alerts by rule, correlated matches, shell alerts without an exec audit event, incidents by severity, and ATT&CK techniques observed. Denials are inferred from non-2xx audit `responseStatus.code`; they include any denied API operation, not only policy denials. Policy names are parsed from Kyverno's denial message.
 
 ## Scenario coverage
@@ -189,7 +193,7 @@ Kyverno 1.19 prints a deprecation warning for `kyverno.io/v1` `ClusterPolicy` (i
 
 ## Falco configuration
 
-Falco is installed from the official Helm chart with `modern_ebpf`, JSON output, and `helm/falco-values.yaml`.
+Falco is installed from the official Helm chart with `modern_ebpf`, JSON output, and `helm/falco-values.yaml`. The libs logger is limited to errors so its warnings do not share the log stream with alerts. `up.ps1` and `up.sh` wait until the Falco DaemonSet is rolled out and has opened its syscall source before returning; `helm --wait` alone does not, because on a one-node cluster the default `maxUnavailable` of 1 counts zero ready pods as ready, and scenarios run straight after install would start before Falco captures anything.
 
 ## API audit configuration
 

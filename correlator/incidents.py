@@ -103,7 +103,7 @@ def main():
     p.add_argument('--min-severity', choices=tuple(RANK), default='low')
     args = p.parse_args()
     if args.window_seconds < 0 or args.gap_seconds < 0: p.error('--window-seconds and --gap-seconds must be non-negative')
-    try: rows = build_incidents(list(read_jsonl(args.audit)), list(read_jsonl(args.falco)), args.window_seconds, args.gap_seconds)
+    try: rows = build_incidents(list(read_jsonl(args.audit)), list(read_jsonl(args.falco, skip_invalid=True)), args.window_seconds, args.gap_seconds)
     except (OSError, ValueError) as e: print(f'error: {e}', file=sys.stderr); return 2
     rows = [i for i in rows if RANK[i['severity']] >= RANK[args.min_severity]]
     if args.format == 'json': print(json.dumps(rows, indent=2))

@@ -19,6 +19,8 @@ RULE_FALLBACK = {
 PRIORITY_WEIGHT = {'emergency': 40, 'alert': 40, 'critical': 40, 'error': 30, 'warning': 15, 'notice': 5,
                    'informational': 2, 'info': 2, 'debug': 1}
 UNNAMED = '(unnamed)'
+# NotFound, Conflict and Gone are ordinary API races (a mirror pod that already exists), not refusals.
+NOT_REFUSALS = {404, 409, 410}
 DENIAL_BLOCK = re.compile(r'following polic(?:y|ies)(.*)', re.S | re.I)
 POLICY_LINE = re.compile(r'^\s*([a-z0-9][a-z0-9.-]*):\s*$', re.M)
 
@@ -27,6 +29,11 @@ def denial_policies(message):
     """Kyverno lists blocking policy names on their own lines after 'blocked due to the following policies'."""
     m = DENIAL_BLOCK.search(str(message or ''))
     return sorted(set(POLICY_LINE.findall(m.group(1)))) if m else []
+
+
+def is_bootstrap(sig):
+    """The kubelet registers control-plane mirror pods at node start; some are refused (403, no PriorityClass yet)."""
+    return str(sig['user']).startswith('system:node:') and sig['namespace'] == 'kube-system'
 
 
 def audit_signal(e):
@@ -39,6 +46,7 @@ def audit_signal(e):
            'audit_id': e.get('auditID'), 'verb': e.get('verb'), 'subresource': ref.get('subresource'), 'code': code}
     if sig['ts'] is None: return None
     if code is not None and code >= 400:
+        if code in NOT_REFUSALS or is_bootstrap(sig): return None
         policies = denial_policies(status.get('message'))
         what = ', '.join(policies) or f"{ref.get('subresource') or 'pods'} {e.get('verb')}"
         # A rejected create can be audited before the object has a name (generateName).

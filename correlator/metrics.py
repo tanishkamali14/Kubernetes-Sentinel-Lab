@@ -9,7 +9,7 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--audit',required=True,type=Path); p.add_argument('--falco',required=True,type=Path)
 p.add_argument('--window-seconds',type=float,default=30); a=p.parse_args()
 try:
- audit=list(read_jsonl(a.audit)); falco=list(read_jsonl(a.falco))
+ audit=list(read_jsonl(a.audit)); falco=list(read_jsonl(a.falco,skip_invalid=True))
 except (OSError,ValueError) as e:
  print(f'error: {e}',file=sys.stderr); raise SystemExit(2)
 rules=Counter(str(e.get('rule','unknown')) for e in falco if e.get('rule'))

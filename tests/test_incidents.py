@@ -41,6 +41,17 @@ class EventTests(unittest.TestCase):
         s = audit_signal(e)
         self.assertEqual((s['kind'], s['pod']), ('denied', UNNAMED))
 
+    def test_api_races_and_kubelet_bootstrap_refusals_are_not_denial_signals(self):
+        def denied(code, user='alice', ns='default'):
+            return {'auditID': 'x', 'verb': 'create', 'requestReceivedTimestamp': '2026-01-01T12:00:00Z', 'user': {'username': user},
+                    'objectRef': {'resource': 'pods', 'namespace': ns, 'name': 'p'}, 'responseStatus': {'code': code}}
+        self.assertIsNone(audit_signal(denied(409)))                                              # AlreadyExists / Conflict
+        self.assertIsNone(audit_signal(denied(404)))
+        self.assertIsNone(audit_signal(denied(403, 'system:node:cp1', 'kube-system')))           # mirror pod before PriorityClass exists
+        self.assertEqual(audit_signal(denied(403))['kind'], 'denied')                             # a user refused by RBAC is worth seeing
+        self.assertEqual(audit_signal(denied(403, 'system:node:cp1', 'default'))['kind'], 'denied')  # only kube-system bootstrap is ignored
+        self.assertEqual(audit_signal(denied(400))['kind'], 'denied')
+
     def test_successful_non_exec_audit_is_not_a_signal(self):
         self.assertIsNone(audit_signal({'verb': 'create', 'requestReceivedTimestamp': '2026-01-01T12:00:00Z',
                                         'objectRef': {'resource': 'pods', 'name': 'p'}, 'responseStatus': {'code': 201}}))

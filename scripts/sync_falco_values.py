@@ -12,6 +12,11 @@ FALCO_SETTINGS = """falco:
   json_include_output_property: true
   json_include_output_fields_property: true
   time_format_iso_8601: true
+  # libs warnings (for example short-lived processes whose fd path cannot be resolved) share the log stream
+  # with alerts and can corrupt an alert line; keep errors only. Falco's own startup lines are unaffected.
+  libs_logger:
+    enabled: true
+    severity: error
 """
 
 
