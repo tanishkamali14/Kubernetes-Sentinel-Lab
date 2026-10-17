@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: denied-hostpath
+spec:
+  containers:
+    - name: app
+      image: nginx:stable
+  volumes:
+    - name: host-root
+      hostPath:
+        path: /

@@ -1,0 +1,126 @@
+# Second policy tier, applied after kyverno/baseline-policies.yaml.
+# Same namespace exclusions as the baseline (see the note at the top of that file).
+# require-resource-limits runs in Audit mode: violations appear in PolicyReports
+# (kubectl get policyreport -A) instead of blocking the Pod.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-namespaces
+spec:
+  background: true
+  rules:
+    - name: host-namespaces
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "Sharing the host namespaces (hostNetwork, hostPID, hostIPC) is not allowed."
+        pattern:
+          spec:
+            =(hostNetwork): "false"
+            =(hostIPC): "false"
+            =(hostPID): "false"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privilege-escalation
+spec:
+  background: true
+  rules:
+    - name: privilege-escalation
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "Set allowPrivilegeEscalation to false in every container securityContext."
+        pattern:
+          spec:
+            =(ephemeralContainers):
+              - securityContext:
+                  allowPrivilegeEscalation: "false"
+            =(initContainers):
+              - securityContext:
+                  allowPrivilegeEscalation: "false"
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: "false"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+spec:
+  background: true
+  rules:
+    - name: require-image-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "An explicit image tag or digest is required."
+        pattern:
+          spec:
+            containers:
+              - image: "*:*"
+    - name: validate-image-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "The mutable image tag 'latest' is not allowed."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+spec:
+  background: true
+  rules:
+    - name: cpu-and-memory-limits
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Audit
+        message: "Set CPU and memory limits on every container."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"

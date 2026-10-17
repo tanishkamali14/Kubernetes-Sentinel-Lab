@@ -1,0 +1,156 @@
+# Namespaces excluded from every policy below:
+#   falco              - the Falco DaemonSet is privileged, mounts hostPath and runs as root by design.
+#   kube-system        - control-plane and CNI pods (Kyverno's chart already filters this by default).
+#   local-path-storage - Kind's default storage provisioner.
+# Without these exclusions Kyverno would reject the Falco DaemonSet (autogen applies Pod rules to controllers).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privileged-containers
+spec:
+  background: true
+  rules:
+    - name: containers
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "Privileged containers are not allowed."
+        foreach:
+          - list: "request.object.spec.containers[] || `[]`"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.privileged || `false` }}"
+                    operator: Equals
+                    value: true
+          - list: "request.object.spec.initContainers[] || `[]`"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.privileged || `false` }}"
+                    operator: Equals
+                    value: true
+          - list: "request.object.spec.ephemeralContainers[] || `[]`"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.privileged || `false` }}"
+                    operator: Equals
+                    value: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-hostpath-volumes
+spec:
+  background: true
+  rules:
+    - name: block-hostpath
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "hostPath volumes are not allowed."
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-nonroot
+spec:
+  background: true
+  rules:
+    - name: pod-run-as-nonroot
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "Set runAsNonRoot to true at Pod and container level."
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+    - name: containers-run-as-nonroot
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "Set runAsNonRoot to true for every container."
+        foreach:
+          - list: "request.object.spec.containers[] || `[]`"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.runAsNonRoot || `false` }}"
+                    operator: NotEquals
+                    value: true
+          - list: "request.object.spec.initContainers[] || `[]`"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.runAsNonRoot || `false` }}"
+                    operator: NotEquals
+                    value: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-drop-all-capabilities
+spec:
+  background: true
+  rules:
+    - name: containers-drop-all
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [falco, kube-system, local-path-storage]
+      validate:
+        failureAction: Enforce
+        message: "Drop all Linux capabilities in every container securityContext."
+        foreach:
+          - list: "request.object.spec.containers[] || `[]`"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ contains(element.securityContext.capabilities.drop || `[]`, 'ALL') }}"
+                    operator: Equals
+                    value: false
+          - list: "request.object.spec.initContainers[] || `[]`"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ contains(element.securityContext.capabilities.drop || `[]`, 'ALL') }}"
+                    operator: Equals
+                    value: false

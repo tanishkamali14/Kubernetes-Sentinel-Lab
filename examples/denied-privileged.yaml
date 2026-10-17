@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: denied-privileged
+spec:
+  containers:
+    - name: app
+      image: nginx:stable
+      securityContext:
+        privileged: true

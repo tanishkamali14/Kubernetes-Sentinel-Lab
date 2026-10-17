@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ['3.10', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/sync_falco_values.py --check
+
+  policies:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/test-policies.sh
+
+  falco-rules:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/validate-falco-rules.sh
+
+  # Full lab on a Kind cluster. Slow and kernel-dependent (Falco's modern eBPF probe needs BTF), so it
+  # runs on pushes to main, nightly and on demand rather than on every pull request.
+  e2e:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1
+        with:
+          install_only: true
+      - run: bash scripts/up.sh
+      - run: bash scripts/deploy-workload.sh
+      - run: bash scripts/attack-scenarios.sh
+      - run: sleep 15
+      - run: bash scripts/collect-and-correlate.sh --fail-on-gap
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-data
+          path: runtime-data/

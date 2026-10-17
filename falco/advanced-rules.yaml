@@ -1,0 +1,83 @@
+# Technique IDs in tags (T1234[.567]) are read by correlator/events.py for ATT&CK mapping.
+
+- rule: Detect service account token access in container
+  desc: >
+    Detects a process in a container opening the mounted Kubernetes service account token.
+    Legitimate Kubernetes clients read it too, so tune with an allow-list before alerting on it elsewhere.
+  condition: >
+    evt.type in (open, openat, openat2)
+    and evt.dir=<
+    and evt.is_open_read=true
+    and container
+    and (evt.arg.name startswith /var/run/secrets/kubernetes.io/serviceaccount
+    or evt.arg.name startswith /run/secrets/kubernetes.io/serviceaccount)
+  output: >
+    Service account token access in container (file=%evt.arg.name user=%user.name command=%proc.cmdline container_id=%container.id namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: WARNING
+  tags: [container, filesystem, mitre_credential_access, T1552.007]
+
+- rule: Detect package manager in container
+  desc: Detects package managers started in a running container, a common way to stage tools after access.
+  condition: >
+    spawned_process
+    and container
+    and proc.name in (apt, apt-get, dpkg, apk, yum, dnf, microdnf, pip, pip3)
+  output: >
+    Package manager in container (tool=%proc.name command=%proc.cmdline user=%user.name container_id=%container.id namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: NOTICE
+  tags: [container, process, mitre_command_and_control, T1105]
+
+- rule: Detect download tool in container
+  desc: Detects curl or wget started in a container.
+  condition: >
+    spawned_process
+    and container
+    and proc.name in (curl, wget)
+  output: >
+    Download tool in container (tool=%proc.name command=%proc.cmdline user=%user.name container_id=%container.id namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: NOTICE
+  tags: [container, process, mitre_command_and_control, T1105]
+
+- rule: Detect network tool in container
+  desc: Detects netcat, socat and similar raw socket tools started in a container.
+  condition: >
+    spawned_process
+    and container
+    and proc.name in (nc, ncat, netcat, socat, telnet)
+  output: >
+    Network tool in container (tool=%proc.name command=%proc.cmdline user=%user.name container_id=%container.id namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: WARNING
+  tags: [container, network, mitre_command_and_control, T1095]
+
+- rule: Detect network scanner in container
+  desc: Detects port and network scanners started in a container.
+  condition: >
+    spawned_process
+    and container
+    and proc.name in (nmap, masscan, zmap)
+  output: >
+    Network scanner in container (tool=%proc.name command=%proc.cmdline user=%user.name container_id=%container.id namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: WARNING
+  tags: [container, network, mitre_discovery, T1046]
+
+- rule: Detect Kubernetes client in container
+  desc: Detects kubectl, helm or crictl started inside a container.
+  condition: >
+    spawned_process
+    and container
+    and proc.name in (kubectl, helm, crictl)
+  output: >
+    Kubernetes client in container (tool=%proc.name command=%proc.cmdline user=%user.name container_id=%container.id namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: WARNING
+  tags: [container, process, mitre_discovery, T1613]
+
+- rule: Detect cryptominer process in container
+  desc: Detects well-known cryptocurrency miner binaries started in a container.
+  condition: >
+    spawned_process
+    and container
+    and proc.name in (xmrig, minerd, cpuminer, ethminer, cgminer)
+  output: >
+    Cryptominer process in container (tool=%proc.name command=%proc.cmdline user=%user.name container_id=%container.id namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: CRITICAL
+  tags: [container, process, mitre_impact, T1496]

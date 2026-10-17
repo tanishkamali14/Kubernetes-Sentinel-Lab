@@ -1,0 +1,1 @@
+{"time":"2026-01-01T12:00:02.000Z","rule":"Detect shell in container","priority":"Warning","output":"Shell process in container (user=101 command=sh -c id)","output_fields":{"k8s.ns.name":"default","k8s.pod.name":"runtime-lab","proc.name":"sh","proc.cmdline":"sh -c id","container.id":"abc123"}}

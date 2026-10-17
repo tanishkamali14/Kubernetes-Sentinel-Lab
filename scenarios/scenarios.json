@@ -1,0 +1,45 @@
+{
+  "workload": {"namespace": "default", "pod": "runtime-lab"},
+  "scenarios": [
+    {
+      "id": "A1", "kind": "admission", "title": "Privileged container is rejected",
+      "manifest": "examples/denied-privileged.yaml", "pod": "denied-privileged",
+      "expect": [{"type": "admission_denied", "policy": "disallow-privileged-containers"}]
+    },
+    {
+      "id": "A2", "kind": "admission", "title": "hostPath volume is rejected",
+      "manifest": "examples/denied-hostpath.yaml", "pod": "denied-hostpath",
+      "expect": [{"type": "admission_denied", "policy": "disallow-hostpath-volumes"}]
+    },
+    {
+      "id": "A3", "kind": "admission", "title": "Root container is rejected",
+      "manifest": "examples/denied-nonroot.yaml", "pod": "denied-nonroot",
+      "expect": [{"type": "admission_denied", "policy": "require-nonroot"}]
+    },
+    {
+      "id": "A4", "kind": "admission", "title": "Container keeping capabilities is rejected",
+      "manifest": "examples/denied-capabilities.yaml", "pod": "denied-capabilities",
+      "expect": [{"type": "admission_denied", "policy": "require-drop-all-capabilities"}]
+    },
+    {
+      "id": "R1", "kind": "runtime", "title": "Shell started through kubectl exec", "technique": "T1059.004",
+      "command": "id",
+      "expect": [{"type": "audit_exec"}, {"type": "falco_alert", "rule": "Detect shell in container"}]
+    },
+    {
+      "id": "R2", "kind": "runtime", "title": "Shadow file read attempt", "technique": "T1003.008",
+      "command": "cat /etc/shadow >/dev/null",
+      "expect": [{"type": "falco_alert", "rule": "Detect read of shadow file in container"}]
+    },
+    {
+      "id": "R3", "kind": "runtime", "title": "Service account token access", "technique": "T1552.007",
+      "command": "cat /var/run/secrets/kubernetes.io/serviceaccount/token >/dev/null",
+      "expect": [{"type": "falco_alert", "rule": "Detect service account token access in container"}]
+    },
+    {
+      "id": "R4", "kind": "runtime", "title": "Package manager started in a running container", "technique": "T1105",
+      "command": "apt-get --version >/dev/null",
+      "expect": [{"type": "falco_alert", "rule": "Detect package manager in container"}]
+    }
+  ]
+}

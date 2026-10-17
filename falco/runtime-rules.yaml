@@ -1,0 +1,26 @@
+- rule: Detect shell in container
+  desc: Detects common shell processes started in containers.
+  condition: >
+    spawned_process
+    and container
+    and proc.name in (bash, sh, ash, dash, zsh, ksh)
+  output: >
+    Shell process in container (user=%user.name command=%proc.cmdline container_id=%container.id container_name=%container.name namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: WARNING
+  tags: [container, process, mitre_execution, T1059.004]
+
+# Matches the open() attempt itself rather than the shipped open_read macro, which requires a
+# successful open (fd.num>=0). A non-root process is denied /etc/shadow with EACCES, and that
+# failed attempt is exactly what this rule should surface.
+- rule: Detect read of shadow file in container
+  desc: Detects a process in a container attempting to open /etc/shadow for reading.
+  condition: >
+    evt.type in (open, openat, openat2)
+    and evt.dir=<
+    and evt.is_open_read=true
+    and container
+    and evt.arg.name=/etc/shadow
+  output: >
+    Sensitive file read attempt in container (file=%evt.arg.name result=%evt.arg.fd user=%user.name command=%proc.cmdline container_id=%container.id namespace=%k8s.ns.name pod=%k8s.pod.name)
+  priority: WARNING
+  tags: [container, filesystem, mitre_credential_access, T1003.008]

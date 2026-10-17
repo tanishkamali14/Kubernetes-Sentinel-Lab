@@ -1,0 +1,8 @@
+{"id":"A1","started":"2026-01-01T11:58:00.000Z","finished":"2026-01-01T11:58:00.400Z","result":"rejected"}
+{"id":"A2","started":"2026-01-01T11:58:20.000Z","finished":"2026-01-01T11:58:20.500Z","result":"rejected"}
+{"id":"A3","started":"2026-01-01T11:58:40.000Z","finished":"2026-01-01T11:58:40.500Z","result":"rejected"}
+{"id":"A4","started":"2026-01-01T11:59:00.000Z","finished":"2026-01-01T11:59:00.500Z","result":"rejected"}
+{"id":"R1","started":"2026-01-01T11:59:59.900Z","finished":"2026-01-01T12:00:01.000Z","result":"ok"}
+{"id":"R2","started":"2026-01-01T12:00:02.500Z","finished":"2026-01-01T12:00:03.300Z","result":"nonzero"}
+{"id":"R3","started":"2026-01-01T12:00:03.800Z","finished":"2026-01-01T12:00:04.400Z","result":"ok"}
+{"id":"R4","started":"2026-01-01T12:00:05.300Z","finished":"2026-01-01T12:00:05.900Z","result":"ok"}

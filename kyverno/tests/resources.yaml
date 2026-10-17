@@ -1,0 +1,205 @@
+# Pods exercised by kyverno/tests/kyverno-test.yaml. good-pod satisfies every policy; each other Pod
+# breaks exactly one of them.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod
+  namespace: default
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: nginx:1.27
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged-pod
+  namespace: default
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: nginx:1.27
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        privileged: true
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostpath-pod
+  namespace: default
+spec:
+  securityContext:
+    runAsNonRoot: true
+  volumes:
+    - name: host-root
+      hostPath:
+        path: /
+  containers:
+    - name: app
+      image: nginx:1.27
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: root-pod
+  namespace: default
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: caps-pod
+  namespace: default
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: nginx:1.27
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          add: [NET_ADMIN]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostnet-pod
+  namespace: default
+spec:
+  hostNetwork: true
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: nginx:1.27
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: escalation-pod
+  namespace: default
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: nginx:1.27
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: true
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: latest-pod
+  namespace: default
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: nginx:latest
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: untagged-pod
+  namespace: default
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: nginx
+      resources:
+        limits: {cpu: 250m, memory: 128Mi}
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nolimits-pod
+  namespace: default
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: nginx:1.27
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+---
+# Breaks most policies but lives in an excluded namespace, so the privileged rule must skip it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: falco-privileged-pod
+  namespace: falco
+spec:
+  containers:
+    - name: falco
+      image: falcosecurity/falco:latest
+      securityContext:
+        privileged: true

@@ -1,0 +1,116 @@
+# Expected result per policy rule: good-pod passes, one Pod per rule fails. Run with scripts/test-policies.ps1 (or .sh).
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: baseline-and-advanced-policies
+policies:
+  - ../baseline-policies.yaml
+  - ../advanced-policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: disallow-privileged-containers
+    rule: containers
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: disallow-privileged-containers
+    rule: containers
+    kind: Pod
+    resources: [privileged-pod]
+    result: fail
+  - policy: disallow-privileged-containers
+    rule: containers
+    kind: Pod
+    resources: [falco-privileged-pod]
+    result: skip
+  - policy: disallow-hostpath-volumes
+    rule: block-hostpath
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: disallow-hostpath-volumes
+    rule: block-hostpath
+    kind: Pod
+    resources: [hostpath-pod]
+    result: fail
+  - policy: require-nonroot
+    rule: pod-run-as-nonroot
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: require-nonroot
+    rule: pod-run-as-nonroot
+    kind: Pod
+    resources: [root-pod]
+    result: fail
+  - policy: require-nonroot
+    rule: containers-run-as-nonroot
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: require-nonroot
+    rule: containers-run-as-nonroot
+    kind: Pod
+    resources: [root-pod]
+    result: fail
+  - policy: require-drop-all-capabilities
+    rule: containers-drop-all
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: require-drop-all-capabilities
+    rule: containers-drop-all
+    kind: Pod
+    resources: [caps-pod]
+    result: fail
+  - policy: disallow-host-namespaces
+    rule: host-namespaces
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: disallow-host-namespaces
+    rule: host-namespaces
+    kind: Pod
+    resources: [hostnet-pod]
+    result: fail
+  - policy: disallow-privilege-escalation
+    rule: privilege-escalation
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: disallow-privilege-escalation
+    rule: privilege-escalation
+    kind: Pod
+    resources: [escalation-pod]
+    result: fail
+  - policy: disallow-latest-tag
+    rule: require-image-tag
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: disallow-latest-tag
+    rule: require-image-tag
+    kind: Pod
+    resources: [untagged-pod]
+    result: fail
+  - policy: disallow-latest-tag
+    rule: validate-image-tag
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: disallow-latest-tag
+    rule: validate-image-tag
+    kind: Pod
+    resources: [latest-pod]
+    result: fail
+  - policy: require-resource-limits
+    rule: cpu-and-memory-limits
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: require-resource-limits
+    rule: cpu-and-memory-limits
+    kind: Pod
+    resources: [nolimits-pod]
+    result: fail

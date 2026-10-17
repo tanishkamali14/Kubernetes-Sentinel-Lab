@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: denied-nonroot
+spec:
+  containers:
+    - name: app
+      image: nginx:stable
+      securityContext:
+        capabilities:
+          drop: [ALL]
