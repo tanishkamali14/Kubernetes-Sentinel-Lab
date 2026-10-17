@@ -9,7 +9,6 @@ customRules:
         Legitimate Kubernetes clients read it too, so tune with an allow-list before alerting on it elsewhere.
       condition: >
         evt.type in (open, openat, openat2)
-        and evt.dir=<
         and evt.is_open_read=true
         and container
         and (evt.arg.name startswith /var/run/secrets/kubernetes.io/serviceaccount
@@ -103,7 +102,6 @@ customRules:
       desc: Detects a process in a container attempting to open /etc/shadow for reading.
       condition: >
         evt.type in (open, openat, openat2)
-        and evt.dir=<
         and evt.is_open_read=true
         and container
         and evt.arg.name=/etc/shadow
