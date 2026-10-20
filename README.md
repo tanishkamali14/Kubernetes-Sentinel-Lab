@@ -1,6 +1,6 @@
-# Container Runtime Security Lab
+# Kubernetes Sentinel Lab
 
-A local Kubernetes security lab combining admission prevention, syscall detection, API audit logging, event correlation into scored incidents, scenario-based detection coverage, and an HTML report.
+A local Kubernetes sentinel lab combining admission prevention, syscall detection, API audit logging, event correlation into scored incidents, scenario-based detection coverage, and an HTML report.
 
 ## Architecture
 
